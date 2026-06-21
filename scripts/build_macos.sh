@@ -3,18 +3,15 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Icon Creator"
-VERSION="1.3.3"
+VERSION="1.3.4"
 BUILD_DIR="$ROOT_DIR/build"
 DIST_DIR="$ROOT_DIR/dist"
-SOURCE_ICON="$ROOT_DIR/Icon.png"
+APP_ICON_ICNS="$BUILD_DIR/appicon.icns"
+APP_ICON_PNG="$BUILD_DIR/appicon.png"
 WAILS_BIN="${WAILS_BIN:-$HOME/go/bin/wails}"
-TMP_ICON_DIR=""
 DMG_ROOT=""
 
 cleanup() {
-  if [[ -n "$TMP_ICON_DIR" ]]; then
-    rm -rf "$TMP_ICON_DIR"
-  fi
   if [[ -n "$DMG_ROOT" ]]; then
     rm -rf "$DMG_ROOT"
   fi
@@ -28,16 +25,17 @@ if [[ ! -x "$WAILS_BIN" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$SOURCE_ICON" ]]; then
-  echo "Missing $SOURCE_ICON" >&2
+if [[ ! -f "$APP_ICON_ICNS" ]]; then
+  echo "Missing $APP_ICON_ICNS" >&2
+  exit 1
+fi
+
+if [[ ! -f "$APP_ICON_PNG" ]]; then
+  echo "Missing $APP_ICON_PNG" >&2
   exit 1
 fi
 
 mkdir -p "$BUILD_DIR" "$DIST_DIR"
-
-TMP_ICON_DIR="$(mktemp -d "${TMPDIR:-/tmp}/icon-creator-appicon.XXXXXX")"
-(cd "$ROOT_DIR" && go run ./cmd/icon-creator -input "$SOURCE_ICON" -output "$TMP_ICON_DIR/AppIcon.icns" -keep-intermediates -quiet >/dev/null)
-cp "$TMP_ICON_DIR/AppIcon-icon-work/icon.png" "$BUILD_DIR/appicon.png"
 
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
@@ -53,6 +51,8 @@ if [[ ! -d "$APP_FROM" ]]; then
   echo "Wails did not produce $APP_FROM" >&2
   exit 1
 fi
+
+cp "$APP_ICON_ICNS" "$APP_FROM/Contents/Resources/iconfile.icns"
 
 cp -R "$APP_FROM" "$APP_DIR"
 

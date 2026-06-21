@@ -1,7 +1,7 @@
 # Icon Creator
 
 <p align="center">
-  <img src="Icon.png" alt="Icon Creator app icon" width="220" />
+  <img src="build/appicon.png" alt="Icon Creator app icon" width="220" />
 </p>
 
 Create polished app icons from a source image without leaving your Mac. Icon
@@ -79,7 +79,7 @@ Build the macOS app and DMG:
 The packaged DMG is written to:
 
 ```text
-dist/Icon-Creator-1.3.3-macOS-arm64.dmg
+dist/Icon-Creator-1.3.4-macOS-arm64.dmg
 ```
 
 ## CLI Usage

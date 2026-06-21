@@ -2,6 +2,11 @@
 
 All notable changes to Icon Creator are documented here.
 
+## v1.3.4 - 2026-06-21
+
+- Changed the packaged app icon to the provided `app.icns` artwork.
+- Added the source `.icns` app icon asset to the repository.
+
 ## v1.3.3 - 2026-06-21
 
 - Added final PNG export beside every `.icns` and `.ico` output.
