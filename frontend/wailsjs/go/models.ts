@@ -7,6 +7,7 @@ export namespace main {
 	    zoom: number;
 	    panX: number;
 	    panY: number;
+	    transparentBg: boolean;
 	    keepIntermediates: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -21,22 +22,26 @@ export namespace main {
 	        this.zoom = source["zoom"];
 	        this.panX = source["panX"];
 	        this.panY = source["panY"];
+	        this.transparentBg = source["transparentBg"];
 	        this.keepIntermediates = source["keepIntermediates"];
 	    }
 	}
 	export class CreateIconResponse {
 	    icnsPath: string;
 	    icoPath: string;
+	    pngPath: string;
 	    directory: string;
 	    fileName: string;
 	    icnsFileName: string;
 	    icoFileName: string;
+	    pngFileName: string;
 	    workingDir?: string;
 	    cleanedUp: boolean;
 	    replacedFile: boolean;
 	    outputSize: number;
 	    icnsSize: number;
 	    icoSize: number;
+	    pngSize: number;
 	    statusMessage: string;
 	
 	    static createFrom(source: any = {}) {
@@ -47,16 +52,19 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.icnsPath = source["icnsPath"];
 	        this.icoPath = source["icoPath"];
+	        this.pngPath = source["pngPath"];
 	        this.directory = source["directory"];
 	        this.fileName = source["fileName"];
 	        this.icnsFileName = source["icnsFileName"];
 	        this.icoFileName = source["icoFileName"];
+	        this.pngFileName = source["pngFileName"];
 	        this.workingDir = source["workingDir"];
 	        this.cleanedUp = source["cleanedUp"];
 	        this.replacedFile = source["replacedFile"];
 	        this.outputSize = source["outputSize"];
 	        this.icnsSize = source["icnsSize"];
 	        this.icoSize = source["icoSize"];
+	        this.pngSize = source["pngSize"];
 	        this.statusMessage = source["statusMessage"];
 	    }
 	}

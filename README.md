@@ -5,9 +5,9 @@
 </p>
 
 Create polished app icons from a source image without leaving your Mac. Icon
-Creator produces matching macOS `.icns` and Windows `.ico` files with live
-rounded-corner preview, zoom crop, drag-to-recenter positioning, and automatic
-cleanup of temporary working files.
+Creator produces matching macOS `.icns`, Windows `.ico`, and PNG files with
+live rounded-corner preview, zoom crop, drag-to-recenter positioning, optional
+solid-background transparency, and automatic cleanup of temporary working files.
 
 Developed by Florian Bidabe / Photon Security ([www.photonsec.com.au](https://www.photonsec.com.au))
 
@@ -39,9 +39,14 @@ xattr -dr com.apple.quarantine "/Applications/Icon Creator.app"
 Drop an image onto the preview area or click **Browse**. Use **Shape feel** to
 control the rounded corners, **Zoom crop** to crop tighter, and drag the preview
 to center the source image. Click **Create icons** to export matching `.icns`
-and `.ico` files beside the selected base output path.
+`.ico`, and `.png` files beside the selected base output path.
 
-The normal app flow leaves only the finished `.icns` and `.ico` files.
+Enable **Transparent outer color** when the source image has a solid white,
+off-white, or otherwise flat background connected to the outer edge. Icon
+Creator turns that connected outer color into alpha before applying the rounded
+corner mask.
+
+The normal app flow leaves only the finished `.icns`, `.ico`, and `.png` files.
 Temporary `icon.png` and `.iconset` files are generated in a temp directory and
 removed automatically unless **Keep working files** is enabled.
 
@@ -51,7 +56,8 @@ removed automatically unless **Keep working files** is enabled.
 - Drag-and-drop source image selection
 - Live rounded-corner overlay preview
 - Zoom crop and drag-to-recenter controls
-- Automatic `.icns` and `.ico` export
+- Automatic `.icns`, `.ico`, and PNG export
+- Optional connected solid-background removal to alpha
 - Cleanup by default, with optional working-file retention
 - CLI support for scripted icon generation
 
@@ -73,7 +79,7 @@ Build the macOS app and DMG:
 The packaged DMG is written to:
 
 ```text
-dist/Icon-Creator-1.3.2-macOS-arm64.dmg
+dist/Icon-Creator-1.3.3-macOS-arm64.dmg
 ```
 
 ## CLI Usage
@@ -84,6 +90,8 @@ go run ./cmd/icon-creator -input Icon.png -output app.icns -radius 220 -zoom 1.4
 
 Use `-keep-intermediates` when you need the generated `icon.png` and `.iconset`
 folder for inspection.
+
+Use `-transparent-background` to turn a solid connected outer color into alpha.
 
 `-pan-x` and `-pan-y` accept values from `-100` to `100` and are useful after
 zooming in to recenter the source image.

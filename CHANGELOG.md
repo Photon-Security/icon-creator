@@ -2,6 +2,13 @@
 
 All notable changes to Icon Creator are documented here.
 
+## v1.3.3 - 2026-06-21
+
+- Added final PNG export beside every `.icns` and `.ico` output.
+- Added **Transparent outer color** to turn a solid connected edge background into alpha.
+- Added CLI `-transparent-background` support.
+- Updated result reporting to show all three generated files.
+
 ## v1.3.2 - 2026-06-21
 
 - Added the first public macOS DMG release.

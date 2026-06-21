@@ -32,6 +32,7 @@ function App() {
   const [radius, setRadius] = useState(defaultRadius);
   const [zoom, setZoom] = useState(defaultZoom);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [transparentBg, setTransparentBg] = useState(false);
   const [keepIntermediates, setKeepIntermediates] = useState(false);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -130,6 +131,7 @@ function App() {
         zoom,
         panX: pan.x,
         panY: pan.y,
+        transparentBg,
         keepIntermediates,
       });
       setResult(created);
@@ -153,6 +155,7 @@ function App() {
     setRadius(defaultRadius);
     setZoom(defaultZoom);
     setPan({ x: 0, y: 0 });
+    setTransparentBg(false);
     setKeepIntermediates(false);
     setStatus("idle");
     setMessage("");
@@ -250,6 +253,7 @@ function App() {
                   <div className="preview-badges">
                     <div className="preview-badge">Shape {roundness}%</div>
                     <div className="preview-badge">Zoom {zoomPercent}%</div>
+                    {transparentBg && <div className="preview-badge">Alpha</div>}
                   </div>
                 </div>
               </div>
@@ -345,7 +349,18 @@ function App() {
                 <FolderOpen size={18} aria-hidden="true" />
               </button>
             </div>
-            <p className="output-hint">Exports matching macOS .icns and Windows .ico files.</p>
+            <p className="output-hint">Exports matching macOS .icns, Windows .ico, and PNG files.</p>
+            <label
+              className="toggle-row"
+              title="Turns a solid connected outer color, such as white or off-white, into transparency."
+            >
+              <input
+                checked={transparentBg}
+                type="checkbox"
+                onChange={(event) => setTransparentBg(event.target.checked)}
+              />
+              <span>Transparent outer color</span>
+            </label>
             <label className="toggle-row">
               <input
                 checked={keepIntermediates}
@@ -380,6 +395,10 @@ function App() {
                 <div>
                   <strong>{result.icoFileName}</strong>
                   <span>Windows · {formatBytes(result.icoSize)}</span>
+                </div>
+                <div>
+                  <strong>{result.pngFileName}</strong>
+                  <span>PNG · {formatBytes(result.pngSize)}</span>
                 </div>
               </div>
               <button className="secondary-button" type="button" onClick={revealResult}>

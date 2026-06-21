@@ -19,10 +19,13 @@ import (
 )
 
 const (
-	CanvasSize    = 1024
-	DefaultRadius = 220
-	DefaultZoom   = 1.0
-	MaxZoom       = 3.0
+	CanvasSize                  = 1024
+	DefaultRadius               = 220
+	DefaultZoom                 = 1.0
+	MaxZoom                     = 3.0
+	backgroundTolerance         = 42.0
+	backgroundConsistencyLimit  = 36.0
+	backgroundCornerSampleWidth = 16
 )
 
 type Config struct {
@@ -34,6 +37,7 @@ type Config struct {
 	Zoom              float64
 	PanX              float64
 	PanY              float64
+	TransparentBg     bool
 	KeepIntermediates bool
 }
 
@@ -42,6 +46,7 @@ type Output struct {
 	IconsetDir    string
 	ICNSPath      string
 	ICOPath       string
+	PNGPath       string
 	WorkingDir    string
 }
 
@@ -89,7 +94,7 @@ func Create(cfg Config) (Output, error) {
 		defer cleanup()
 	}
 
-	icon1024 := RoundedIcon(source, CanvasSize, radius, zoom, panX, panY)
+	icon1024 := RoundedIconWithOptions(source, CanvasSize, radius, zoom, panX, panY, cfg.TransparentBg)
 	normalizedPath := filepath.Join(workDir, "icon.png")
 	if err := writePNG(normalizedPath, icon1024); err != nil {
 		return Output{}, err
@@ -120,6 +125,9 @@ func Create(cfg Config) (Output, error) {
 	if err := os.Remove(outputPaths.ICOPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return Output{}, fmt.Errorf("remove old ico: %w", err)
 	}
+	if err := os.Remove(outputPaths.PNGPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return Output{}, fmt.Errorf("remove old png: %w", err)
+	}
 
 	cmd := exec.Command("/usr/bin/iconutil", "-c", "icns", "-o", outputPaths.ICNSPath, iconsetDir)
 	var stderr bytes.Buffer
@@ -130,10 +138,14 @@ func Create(cfg Config) (Output, error) {
 	if err := writeICO(outputPaths.ICOPath, icon1024); err != nil {
 		return Output{}, err
 	}
+	if err := writePNG(outputPaths.PNGPath, icon1024); err != nil {
+		return Output{}, err
+	}
 
 	out := Output{
 		ICNSPath:   outputPaths.ICNSPath,
 		ICOPath:    outputPaths.ICOPath,
+		PNGPath:    outputPaths.PNGPath,
 		WorkingDir: workDir,
 	}
 	if cfg.KeepIntermediates {
@@ -144,8 +156,15 @@ func Create(cfg Config) (Output, error) {
 }
 
 func RoundedIcon(src image.Image, size int, radius int, zoom float64, panX float64, panY float64) *image.NRGBA {
+	return RoundedIconWithOptions(src, size, radius, zoom, panX, panY, false)
+}
+
+func RoundedIconWithOptions(src image.Image, size int, radius int, zoom float64, panX float64, panY float64, transparentBg bool) *image.NRGBA {
 	cropped := centerSquare(src, normalizeZoom(zoom), normalizePan(panX), normalizePan(panY))
 	resized := resizeImage(cropped, size, size)
+	if transparentBg {
+		applySolidEdgeTransparency(resized)
+	}
 	applyRoundedMask(resized, radius)
 	return resized
 }
@@ -169,6 +188,7 @@ func SanitizeName(name string) string {
 	name = strings.TrimSpace(name)
 	name = strings.TrimSuffix(name, ".icns")
 	name = strings.TrimSuffix(name, ".ico")
+	name = strings.TrimSuffix(name, ".png")
 	name = strings.TrimSuffix(name, ".iconset")
 	name = strings.Map(func(r rune) rune {
 		switch {
@@ -194,6 +214,7 @@ func SanitizeName(name string) string {
 type outputPaths struct {
 	ICNSPath string
 	ICOPath  string
+	PNGPath  string
 }
 
 func finalOutputPaths(cfg Config) (outputPaths, error) {
@@ -203,13 +224,14 @@ func finalOutputPaths(cfg Config) (outputPaths, error) {
 			outputPath += ".icns"
 		}
 		ext := strings.ToLower(filepath.Ext(outputPath))
-		if ext != ".icns" && ext != ".ico" {
-			return outputPaths{}, errors.New("output file must use the .icns or .ico extension")
+		if ext != ".icns" && ext != ".ico" && ext != ".png" {
+			return outputPaths{}, errors.New("output file must use the .icns, .ico, or .png extension")
 		}
 		base := strings.TrimSuffix(outputPath, filepath.Ext(outputPath))
 		return outputPaths{
 			ICNSPath: base + ".icns",
 			ICOPath:  base + ".ico",
+			PNGPath:  base + ".png",
 		}, nil
 	}
 
@@ -225,6 +247,7 @@ func finalOutputPaths(cfg Config) (outputPaths, error) {
 	return outputPaths{
 		ICNSPath: filepath.Join(cfg.OutputDir, base+".icns"),
 		ICOPath:  filepath.Join(cfg.OutputDir, base+".ico"),
+		PNGPath:  filepath.Join(cfg.OutputDir, base+".png"),
 	}, nil
 }
 
@@ -400,6 +423,155 @@ func applyRoundedMask(img *image.NRGBA, radius int) {
 	}
 }
 
+func applySolidEdgeTransparency(img *image.NRGBA) {
+	bg, ok := estimateSolidEdgeBackground(img)
+	if !ok {
+		return
+	}
+
+	b := img.Bounds()
+	w := b.Dx()
+	h := b.Dy()
+	if w == 0 || h == 0 {
+		return
+	}
+
+	type point struct {
+		x int
+		y int
+	}
+
+	seen := make([]bool, w*h)
+	queue := make([]point, 0, 2*w+2*h)
+	add := func(x, y int) {
+		if x < 0 || x >= w || y < 0 || y >= h {
+			return
+		}
+		idx := y*w + x
+		if seen[idx] {
+			return
+		}
+		c := img.NRGBAAt(x, y)
+		if !matchesEdgeBackground(c, bg) {
+			return
+		}
+		seen[idx] = true
+		queue = append(queue, point{x: x, y: y})
+	}
+
+	for x := 0; x < w; x++ {
+		add(x, 0)
+		add(x, h-1)
+	}
+	for y := 0; y < h; y++ {
+		add(0, y)
+		add(w-1, y)
+	}
+
+	for len(queue) > 0 {
+		p := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+		i := img.PixOffset(p.x, p.y)
+		img.Pix[i+0] = 0
+		img.Pix[i+1] = 0
+		img.Pix[i+2] = 0
+		img.Pix[i+3] = 0
+
+		add(p.x+1, p.y)
+		add(p.x-1, p.y)
+		add(p.x, p.y+1)
+		add(p.x, p.y-1)
+	}
+}
+
+func estimateSolidEdgeBackground(img *image.NRGBA) (color.NRGBA, bool) {
+	b := img.Bounds()
+	w := b.Dx()
+	h := b.Dy()
+	if w == 0 || h == 0 {
+		return color.NRGBA{}, false
+	}
+
+	sample := clampInt(backgroundCornerSampleWidth, 1, minInt(w, h))
+	patches := []image.Rectangle{
+		image.Rect(0, 0, sample, sample),
+		image.Rect(w-sample, 0, w, sample),
+		image.Rect(0, h-sample, sample, h),
+		image.Rect(w-sample, h-sample, w, h),
+	}
+
+	colors := make([]color.NRGBA, 0, len(patches))
+	for _, patch := range patches {
+		c, ok := averageOpaquePatch(img, patch)
+		if !ok {
+			return color.NRGBA{}, false
+		}
+		colors = append(colors, c)
+	}
+
+	var r, g, bl, a uint64
+	for _, c := range colors {
+		r += uint64(c.R)
+		g += uint64(c.G)
+		bl += uint64(c.B)
+		a += uint64(c.A)
+	}
+	bg := color.NRGBA{
+		R: uint8(r / uint64(len(colors))),
+		G: uint8(g / uint64(len(colors))),
+		B: uint8(bl / uint64(len(colors))),
+		A: uint8(a / uint64(len(colors))),
+	}
+
+	for _, c := range colors {
+		if colorDistance(c, bg) > backgroundConsistencyLimit {
+			return color.NRGBA{}, false
+		}
+	}
+	return bg, true
+}
+
+func averageOpaquePatch(img *image.NRGBA, rect image.Rectangle) (color.NRGBA, bool) {
+	var r, g, b, a uint64
+	var count uint64
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		for x := rect.Min.X; x < rect.Max.X; x++ {
+			c := img.NRGBAAt(x, y)
+			if c.A < 16 {
+				continue
+			}
+			r += uint64(c.R)
+			g += uint64(c.G)
+			b += uint64(c.B)
+			a += uint64(c.A)
+			count++
+		}
+	}
+	if count == 0 {
+		return color.NRGBA{}, false
+	}
+	return color.NRGBA{
+		R: uint8(r / count),
+		G: uint8(g / count),
+		B: uint8(b / count),
+		A: uint8(a / count),
+	}, true
+}
+
+func matchesEdgeBackground(c color.NRGBA, bg color.NRGBA) bool {
+	if c.A < 16 {
+		return true
+	}
+	return colorDistance(c, bg) <= backgroundTolerance
+}
+
+func colorDistance(a color.NRGBA, b color.NRGBA) float64 {
+	r := float64(a.R) - float64(b.R)
+	g := float64(a.G) - float64(b.G)
+	bl := float64(a.B) - float64(b.B)
+	return math.Sqrt(r*r + g*g + bl*bl)
+}
+
 func pointInRoundedRect(x, y, w, h, r float64) bool {
 	if x >= r && x <= w-r {
 		return true
@@ -538,6 +710,13 @@ func clampInt(v, minValue, maxValue int) int {
 		return maxValue
 	}
 	return v
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func formatToolError(stderr string) string {

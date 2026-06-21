@@ -43,13 +43,17 @@ func TestCreateIconCleansIntermediatesByDefault(t *testing.T) {
 		t.Fatalf("ICOPath = %q, want %q", out.ICOPath, filepath.Join(tempDir, "app.ico"))
 	}
 	assertICO(t, out.ICOPath, 7)
+	if out.PNGPath != filepath.Join(tempDir, "app.png") {
+		t.Fatalf("PNGPath = %q, want %q", out.PNGPath, filepath.Join(tempDir, "app.png"))
+	}
+	assertPNG(t, out.PNGPath, 1024, 1024)
 	if _, err := os.Stat(out.WorkingDir); !os.IsNotExist(err) {
 		t.Fatalf("working dir still exists: %s", out.WorkingDir)
 	}
 	if entries, err := os.ReadDir(tempDir); err != nil {
 		t.Fatal(err)
-	} else if len(entries) != 3 {
-		t.Fatalf("expected only source.png, app.icns, and app.ico, got %d entries", len(entries))
+	} else if len(entries) != 4 {
+		t.Fatalf("expected only source.png, app.icns, app.ico, and app.png, got %d entries", len(entries))
 	}
 }
 
@@ -81,6 +85,29 @@ func TestCreateIconCanKeepIntermediates(t *testing.T) {
 		assertPNG(t, filepath.Join(out.IconsetDir, spec.FileName), spec.Size, spec.Size)
 	}
 	assertICO(t, out.ICOPath, 7)
+	assertPNG(t, out.PNGPath, 1024, 1024)
+}
+
+func TestCreateIconCanTurnSolidOuterBackgroundTransparent(t *testing.T) {
+	tempDir := t.TempDir()
+	inputPath := filepath.Join(tempDir, "source.png")
+	outputPath := filepath.Join(tempDir, "transparent.icns")
+	if err := writeWhiteBackgroundSource(inputPath); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := iconcreator.Create(iconcreator.Config{
+		InputPath:     inputPath,
+		OutputPath:    outputPath,
+		Radius:        0,
+		TransparentBg: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertTransparentPixel(t, out.PNGPath, 0, 0)
+	assertOpaquePixel(t, out.PNGPath, 512, 512)
 }
 
 func TestSanitizeName(t *testing.T) {
@@ -99,6 +126,26 @@ func writeTestSource(path string) error {
 				B: 180,
 				A: 255,
 			})
+		}
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, img)
+}
+
+func writeWhiteBackgroundSource(path string) error {
+	img := image.NewNRGBA(image.Rect(0, 0, 128, 128))
+	for y := 0; y < 128; y++ {
+		for x := 0; x < 128; x++ {
+			c := color.NRGBA{R: 248, G: 248, B: 246, A: 255}
+			if x >= 36 && x < 92 && y >= 36 && y < 92 {
+				c = color.NRGBA{R: 210, G: 54, B: 62, A: 255}
+			}
+			img.SetNRGBA(x, y, c)
 		}
 	}
 
@@ -147,6 +194,26 @@ func assertTransparentPixel(t *testing.T, path string, x int, y int) {
 	_, _, _, alpha := img.At(x, y).RGBA()
 	if alpha != 0 {
 		t.Fatalf("%s pixel %d,%d alpha = %d, want 0", path, x, y, alpha)
+	}
+}
+
+func assertOpaquePixel(t *testing.T, path string, x int, y int) {
+	t.Helper()
+
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open %s: %v", path, err)
+	}
+	defer f.Close()
+
+	img, err := png.Decode(f)
+	if err != nil {
+		t.Fatalf("decode %s: %v", path, err)
+	}
+
+	_, _, _, alpha := img.At(x, y).RGBA()
+	if alpha == 0 {
+		t.Fatalf("%s pixel %d,%d alpha = %d, want opaque", path, x, y, alpha)
 	}
 }
 

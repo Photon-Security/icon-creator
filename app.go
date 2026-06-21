@@ -37,22 +37,26 @@ type CreateIconRequest struct {
 	Zoom              float64 `json:"zoom"`
 	PanX              float64 `json:"panX"`
 	PanY              float64 `json:"panY"`
+	TransparentBg     bool    `json:"transparentBg"`
 	KeepIntermediates bool    `json:"keepIntermediates"`
 }
 
 type CreateIconResponse struct {
 	ICNSPath      string `json:"icnsPath"`
 	ICOPath       string `json:"icoPath"`
+	PNGPath       string `json:"pngPath"`
 	Directory     string `json:"directory"`
 	FileName      string `json:"fileName"`
 	ICNSFileName  string `json:"icnsFileName"`
 	ICOFileName   string `json:"icoFileName"`
+	PNGFileName   string `json:"pngFileName"`
 	WorkingDir    string `json:"workingDir,omitempty"`
 	CleanedUp     bool   `json:"cleanedUp"`
 	ReplacedFile  bool   `json:"replacedFile"`
 	OutputSize    int64  `json:"outputSize"`
 	ICNSSize      int64  `json:"icnsSize"`
 	ICOSize       int64  `json:"icoSize"`
+	PNGSize       int64  `json:"pngSize"`
 	StatusMessage string `json:"statusMessage"`
 }
 
@@ -93,7 +97,7 @@ func (a *App) SelectOutput(defaultPath string) (string, error) {
 		DefaultFilename:      defaultName,
 		CanCreateDirectories: true,
 		Filters: []runtime.FileFilter{
-			{DisplayName: "Icon Export (*.icns, *.ico)", Pattern: "*.icns;*.ico"},
+			{DisplayName: "Icon Export (*.icns, *.ico, *.png)", Pattern: "*.icns;*.ico;*.png"},
 		},
 	})
 }
@@ -142,11 +146,11 @@ func (a *App) CreateIcon(req CreateIconRequest) (CreateIconResponse, error) {
 	}
 
 	replaced := false
-	if _, err := os.Stat(req.OutputPath); err == nil {
-		replaced = true
-	}
-	if _, err := os.Stat(siblingIconPath(req.OutputPath)); err == nil {
-		replaced = true
+	for _, path := range siblingOutputPaths(req.OutputPath) {
+		if _, err := os.Stat(path); err == nil {
+			replaced = true
+			break
+		}
 	}
 
 	out, err := iconcreator.Create(iconcreator.Config{
@@ -156,6 +160,7 @@ func (a *App) CreateIcon(req CreateIconRequest) (CreateIconResponse, error) {
 		Zoom:              req.Zoom,
 		PanX:              req.PanX,
 		PanY:              req.PanY,
+		TransparentBg:     req.TransparentBg,
 		KeepIntermediates: req.KeepIntermediates,
 	})
 	if err != nil {
@@ -170,21 +175,28 @@ func (a *App) CreateIcon(req CreateIconRequest) (CreateIconResponse, error) {
 	if err != nil {
 		return CreateIconResponse{}, fmt.Errorf("read generated ico: %w", err)
 	}
+	pngInfo, err := os.Stat(out.PNGPath)
+	if err != nil {
+		return CreateIconResponse{}, fmt.Errorf("read generated png: %w", err)
+	}
 
 	response := CreateIconResponse{
 		ICNSPath:      out.ICNSPath,
 		ICOPath:       out.ICOPath,
+		PNGPath:       out.PNGPath,
 		Directory:     filepath.Dir(out.ICNSPath),
-		FileName:      filepath.Base(out.ICNSPath) + " + " + filepath.Base(out.ICOPath),
+		FileName:      filepath.Base(out.ICNSPath) + " + " + filepath.Base(out.ICOPath) + " + " + filepath.Base(out.PNGPath),
 		ICNSFileName:  filepath.Base(out.ICNSPath),
 		ICOFileName:   filepath.Base(out.ICOPath),
+		PNGFileName:   filepath.Base(out.PNGPath),
 		WorkingDir:    out.WorkingDir,
 		CleanedUp:     !req.KeepIntermediates,
 		ReplacedFile:  replaced,
-		OutputSize:    icnsInfo.Size() + icoInfo.Size(),
+		OutputSize:    icnsInfo.Size() + icoInfo.Size() + pngInfo.Size(),
 		ICNSSize:      icnsInfo.Size(),
 		ICOSize:       icoInfo.Size(),
-		StatusMessage: "Created " + filepath.Base(out.ICNSPath) + " and " + filepath.Base(out.ICOPath),
+		PNGSize:       pngInfo.Size(),
+		StatusMessage: "Created " + filepath.Base(out.ICNSPath) + ", " + filepath.Base(out.ICOPath) + ", and " + filepath.Base(out.PNGPath),
 	}
 	return response, nil
 }
@@ -213,18 +225,18 @@ func previewDataURL(path string, format string) (string, error) {
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }
 
-func siblingIconPath(path string) string {
+func siblingOutputPaths(path string) []string {
 	if strings.TrimSpace(path) == "" {
-		return ""
+		return nil
 	}
 	clean := filepath.Clean(path)
+	if filepath.Ext(clean) == "" {
+		clean += ".icns"
+	}
 	ext := strings.ToLower(filepath.Ext(clean))
-	if ext == "" {
-		return strings.TrimSuffix(clean, filepath.Ext(clean)) + ".ico"
-	}
 	base := strings.TrimSuffix(clean, filepath.Ext(clean))
-	if ext == ".ico" {
-		return base + ".icns"
+	if ext != ".icns" && ext != ".ico" && ext != ".png" {
+		return []string{clean}
 	}
-	return base + ".ico"
+	return []string{base + ".icns", base + ".ico", base + ".png"}
 }
