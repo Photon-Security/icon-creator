@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "IconCreator",
+  "outputfilename": "Icon Creator",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Florian Bidabe",
+    "email": ""
+  },
+  "info": {
+    "companyName": "Photon Security",
+    "productName": "Icon Creator",
+    "productVersion": "1.3.2",
+    "comments": "macOS and Windows icon generator",
+    "copyright": ""
+  }
+}

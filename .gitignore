@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs and diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+
+# Frontend dependencies and generated assets
+frontend/node_modules/
+frontend/dist/
+frontend/package.json.md5
+
+# Go build/test output
+*.test
+coverage.out
+
+# Wails and release build output
+dist/
+build/bin/
+build/app-icon/
+build/dmg-root/
+build/test-output/
+build/darwin/iconfile.icns
+
+# Icon Creator working files
+*.iconset/
+*-icon-work/
