@@ -1,10 +1,13 @@
 package iconcreator
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -14,6 +17,8 @@ import (
 	"github.com/jackmordaunt/icns/v2"
 	"github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
+	"golang.org/x/image/riff"
+	"golang.org/x/image/vp8l"
 	_ "golang.org/x/image/webp"
 )
 
@@ -81,9 +86,81 @@ func DecodeSource(path string) (image.Image, string, error) {
 
 	img, format, err := image.Decode(f)
 	if err != nil {
+		// x/image/webp versions compatible with Go 1.22 reject valid extended
+		// lossless WebP files whose VP8X header advertises alpha. Retry that
+		// specific container layout by decoding its VP8L payload directly.
+		if _, seekErr := f.Seek(0, io.SeekStart); seekErr == nil {
+			if webpImage, fallbackErr := decodeExtendedLosslessWebP(f); fallbackErr == nil {
+				return webpImage, "webp", nil
+			}
+		}
 		return nil, "", fmt.Errorf("decode source image: %w", err)
 	}
 	return img, format, nil
+}
+
+var (
+	webpFormType = riff.FourCC{'W', 'E', 'B', 'P'}
+	webpVP8X     = riff.FourCC{'V', 'P', '8', 'X'}
+	webpVP8L     = riff.FourCC{'V', 'P', '8', 'L'}
+)
+
+// decodeExtendedLosslessWebP handles VP8X containers with a top-level VP8L
+// image. This is valid WebP, but x/image/webp rejected it before v0.38.0.
+func decodeExtendedLosslessWebP(r io.Reader) (image.Image, error) {
+	formType, chunks, err := riff.NewReader(r)
+	if err != nil || formType != webpFormType {
+		return nil, fmt.Errorf("invalid extended lossless WebP")
+	}
+
+	var canvas image.Point
+	seenVP8X := false
+	for {
+		chunkID, chunkLen, chunkData, err := chunks.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		switch chunkID {
+		case webpVP8X:
+			if seenVP8X || chunkLen != 10 {
+				return nil, fmt.Errorf("invalid WebP VP8X header")
+			}
+			seenVP8X = true
+			var header [10]byte
+			if _, err := io.ReadFull(chunkData, header[:]); err != nil {
+				return nil, err
+			}
+			const animationBit = 1 << 1
+			if header[0]&animationBit != 0 {
+				return nil, fmt.Errorf("animated WebP is not supported")
+			}
+			canvas = image.Pt(
+				1+int(header[4])+(int(header[5])<<8)+(int(header[6])<<16),
+				1+int(header[7])+(int(header[8])<<8)+(int(header[9])<<16),
+			)
+
+		case webpVP8L:
+			if !seenVP8X {
+				return nil, fmt.Errorf("WebP does not use an extended lossless container")
+			}
+
+			buffered := bufio.NewReader(chunkData)
+			var header [5]byte
+			if _, err := io.ReadFull(buffered, header[:]); err != nil {
+				return nil, err
+			}
+			config, err := vp8l.DecodeConfig(bytes.NewReader(header[:]))
+			if err != nil {
+				return nil, err
+			}
+			if config.Width != canvas.X || config.Height != canvas.Y {
+				return nil, fmt.Errorf("WebP canvas and image dimensions do not match")
+			}
+
+			return vp8l.Decode(io.MultiReader(bytes.NewReader(header[:]), buffered))
+		}
+	}
 }
 
 func decodeContainer(f *os.File, ext string) (img image.Image, format string, err error) {

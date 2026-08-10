@@ -94,8 +94,8 @@ Build the app for the current platform:
 The packaged DMG is written to:
 
 ```text
-dist/Icon-Creator-1.3.9-macOS-arm64.dmg
-dist/Icon-Creator-1.3.9-Windows-amd64.exe
+dist/Icon-Creator-1.3.10-macOS-arm64.dmg
+dist/Icon-Creator-1.3.10-Windows-amd64.exe
 ```
 
 ## CLI Usage

@@ -2,6 +2,10 @@
 
 All notable changes to Icon Creator are documented here.
 
+## v1.3.10 - 2026-08-10
+
+- Fixed valid extended lossless WebP sources with transparency being rejected as an invalid format.
+
 ## v1.3.9 - 2026-08-08
 
 - Added aspect-ratio-aware zoom-out for non-square source images.

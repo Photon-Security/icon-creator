@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Icon Creator"
-VERSION="1.3.9"
+VERSION="1.3.10"
 BUILD_DIR="$ROOT_DIR/build"
 DIST_DIR="$ROOT_DIR/dist"
 APP_ICON_ICNS="$BUILD_DIR/appicon.icns"

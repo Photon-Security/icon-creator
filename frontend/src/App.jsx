@@ -28,7 +28,7 @@ const defaultRadius = 220;
 const defaultZoom = 1;
 const donationURL = "https://ko-fi.com/enelass";
 const websiteURL = "https://www.photonsec.com.au";
-const appVersion = "1.3.9";
+const appVersion = "1.3.10";
 
 function App() {
   const [image, setImage] = useState(null);

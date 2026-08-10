@@ -208,6 +208,69 @@ func TestDecodeSourceWebP(t *testing.T) {
 	}
 }
 
+func TestDecodeSourceExtendedLosslessWebPWithAlpha(t *testing.T) {
+	// A 2x2 lossless image with alpha, wrapped in a VP8X container with XMP.
+	// This is the same layout used by Pastebin_Ukraine.webp.
+	bare, err := base64.StdEncoding.DecodeString("UklGRkgAAABXRUJQVlA4TDwAAAAvAUAAEB8gFED8cSIJph+HQATxV5lilzkuNW0bsCEY+cpiKmQbARLZPZpneyiB33NxS4BsgDJV2ET0Pz4=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bare) < 12 || string(bare[12:16]) != "VP8L" {
+		t.Fatal("invalid bare WebP test fixture")
+	}
+
+	var body bytes.Buffer
+	body.WriteString("VP8X")
+	binary.Write(&body, binary.LittleEndian, uint32(10))
+	body.Write([]byte{0x14, 0, 0, 0, 1, 0, 0, 1, 0, 0})
+	body.Write(bare[12:])
+	body.WriteString("XMP ")
+	binary.Write(&body, binary.LittleEndian, uint32(4))
+	body.WriteString("test")
+
+	var extended bytes.Buffer
+	extended.WriteString("RIFF")
+	binary.Write(&extended, binary.LittleEndian, uint32(4+body.Len()))
+	extended.WriteString("WEBP")
+	extended.Write(body.Bytes())
+
+	path := filepath.Join(t.TempDir(), "extended-lossless.webp")
+	if err := os.WriteFile(path, extended.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	img, format, err := DecodeSource(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if format != "webp" {
+		t.Fatalf("format = %q, want webp", format)
+	}
+	if got := img.Bounds().Size(); got.X != 2 || got.Y != 2 {
+		t.Fatalf("size = %dx%d, want 2x2", got.X, got.Y)
+	}
+	hasTransparency := false
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			_, _, _, alpha := img.At(x, y).RGBA()
+			if alpha < 0xffff {
+				hasTransparency = true
+			}
+		}
+	}
+	if !hasTransparency {
+		t.Fatal("expected WebP alpha to be preserved")
+	}
+
+	config, configFormat, err := DecodeSourceConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if configFormat != "webp" || config.Width != 2 || config.Height != 2 {
+		t.Fatalf("config = %dx%d %q, want 2x2 webp", config.Width, config.Height, configFormat)
+	}
+}
+
 func TestDecodeSourceSVG(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "source.svg")
 	svg := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><rect width="200" height="100" fill="#e3364a"/></svg>`
