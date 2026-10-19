@@ -6,6 +6,8 @@ export function CreateIcon(arg1:main.CreateIconRequest):Promise<main.CreateIconR
 
 export function InspectImage(arg1:string):Promise<main.ImageInfo>;
 
+export function PasteImage(arg1:string):Promise<main.ImageInfo>;
+
 export function Reveal(arg1:string):Promise<void>;
 
 export function SelectImage():Promise<main.ImageInfo>;

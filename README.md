@@ -37,7 +37,8 @@ xattr -dr com.apple.quarantine "/Applications/Icon Creator.app"
 
 ## Use
 
-Drop an image onto the preview area or click **Browse**. Use **Shape feel** to
+Drop an image onto the preview area, press **⌘V** (macOS) or **Ctrl+V** (Windows)
+to paste an image from the clipboard, or click **Browse**. Use **Shape feel** to
 control the rounded corners, **Zoom** to fit the full source or crop tighter,
 and drag the preview to center the source image. Click **Create icons** to export matching `.icns`
 `.ico`, and `.png` files beside the selected base output path.
@@ -64,6 +65,7 @@ supported; legacy JPEG2000-only ICNS files are reported as unsupported.
 
 - Native macOS and Windows desktop apps built with Go, Wails, and React
 - Drag-and-drop source image selection
+- Paste source images from the clipboard
 - PNG, JPEG, GIF, WebP, SVG, ICO, and ICNS input support
 - Live rounded-corner overlay preview
 - Exact-fit zoom-out, tighter crop, and drag-to-recenter controls
@@ -94,8 +96,8 @@ Build the app for the current platform:
 The packaged DMG is written to:
 
 ```text
-dist/Icon-Creator-1.3.10-macOS-arm64.dmg
-dist/Icon-Creator-1.3.10-Windows-amd64.exe
+dist/Icon-Creator-1.3.11-macOS-arm64.dmg
+dist/Icon-Creator-1.3.11-Windows-amd64.exe
 ```
 
 ## CLI Usage

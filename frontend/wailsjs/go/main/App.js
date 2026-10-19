@@ -10,6 +10,10 @@ export function InspectImage(arg1) {
   return window['go']['main']['App']['InspectImage'](arg1);
 }
 
+export function PasteImage(arg1) {
+  return window['go']['main']['App']['PasteImage'](arg1);
+}
+
 export function Reveal(arg1) {
   return window['go']['main']['App']['Reveal'](arg1);
 }

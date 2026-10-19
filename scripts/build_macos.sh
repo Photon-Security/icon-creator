@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Icon Creator"
-VERSION="1.3.10"
+VERSION="1.3.11"
 BUILD_DIR="$ROOT_DIR/build"
 DIST_DIR="$ROOT_DIR/dist"
 APP_ICON_ICNS="$BUILD_DIR/appicon.icns"
@@ -37,9 +37,6 @@ fi
 
 mkdir -p "$BUILD_DIR" "$DIST_DIR"
 
-rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR"
-
 (cd "$ROOT_DIR" && "$WAILS_BIN" build -clean -platform darwin/arm64 -trimpath -ldflags="-s -w" -o "$APP_NAME")
 
 APP_FROM="$BUILD_DIR/bin/$APP_NAME.app"
@@ -54,6 +51,7 @@ fi
 
 cp "$APP_ICON_ICNS" "$APP_FROM/Contents/Resources/iconfile.icns"
 
+rm -rf "$APP_DIR"
 cp -R "$APP_FROM" "$APP_DIR"
 
 if command -v codesign >/dev/null 2>&1; then

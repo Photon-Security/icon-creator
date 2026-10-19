@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
+	"sync"
 
 	"iconcreator/internal/iconcreator"
 
@@ -18,7 +19,9 @@ import (
 )
 
 type App struct {
-	ctx context.Context
+	ctx       context.Context
+	pastedDir string
+	pastedMu  sync.Mutex
 }
 
 type ImageInfo struct {
@@ -68,6 +71,77 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+func (a *App) shutdown(context.Context) {
+	a.pastedMu.Lock()
+	defer a.pastedMu.Unlock()
+	if a.pastedDir != "" {
+		_ = os.RemoveAll(a.pastedDir)
+		a.pastedDir = ""
+	}
+}
+
+// PasteImage imports image bytes supplied by a clipboard paste event. The
+// temporary source stays available until exit so exports can use it later.
+func (a *App) PasteImage(dataURL string) (ImageInfo, error) {
+	const maxImageBytes = 50 << 20
+	header, encoded, found := strings.Cut(dataURL, ",")
+	extensions := map[string]string{
+		"data:image/png;base64":                ".png",
+		"data:image/jpeg;base64":               ".jpg",
+		"data:image/gif;base64":                ".gif",
+		"data:image/webp;base64":               ".webp",
+		"data:image/svg+xml;base64":            ".svg",
+		"data:image/x-icon;base64":             ".ico",
+		"data:image/vnd.microsoft.icon;base64": ".ico",
+		"data:image/icns;base64":               ".icns",
+	}
+	extension, supported := extensions[header]
+	if !found || !supported || len(encoded) > base64.StdEncoding.EncodedLen(maxImageBytes) {
+		return ImageInfo{}, fmt.Errorf("invalid or oversized clipboard image (50 MB maximum)")
+	}
+	data, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || len(data) == 0 || len(data) > maxImageBytes {
+		return ImageInfo{}, fmt.Errorf("invalid or oversized clipboard image (50 MB maximum)")
+	}
+
+	a.pastedMu.Lock()
+	defer a.pastedMu.Unlock()
+	if a.pastedDir == "" {
+		a.pastedDir, err = os.MkdirTemp("", "icon-creator-paste-*")
+		if err != nil {
+			return ImageInfo{}, fmt.Errorf("prepare clipboard image: %w", err)
+		}
+	}
+	file, err := os.CreateTemp(a.pastedDir, "pasted-*"+extension)
+	if err != nil {
+		return ImageInfo{}, fmt.Errorf("save clipboard image: %w", err)
+	}
+	path := file.Name()
+	if _, err = file.Write(data); err != nil {
+		file.Close()
+		os.Remove(path)
+		return ImageInfo{}, fmt.Errorf("save clipboard image: %w", err)
+	}
+	if err = file.Close(); err != nil {
+		os.Remove(path)
+		return ImageInfo{}, fmt.Errorf("save clipboard image: %w", err)
+	}
+	info, err := a.InspectImage(path)
+	if err != nil {
+		os.Remove(path)
+		return ImageInfo{}, err
+	}
+	// A pasted source has no meaningful source directory for export.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		os.Remove(path)
+		return ImageInfo{}, fmt.Errorf("find default export directory: %w", err)
+	}
+	info.Name = "Pasted image"
+	info.DefaultOutputPath = filepath.Join(home, "app.icns")
+	return info, nil
 }
 
 func (a *App) SelectImage() (ImageInfo, error) {

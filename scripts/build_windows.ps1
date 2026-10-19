@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 
 $RootDir  = Split-Path -Parent $PSScriptRoot
 $AppName  = 'Icon Creator'
-$Version  = '1.3.10'
+$Version  = '1.3.11'
 $BuildDir = Join-Path $RootDir 'build'
 $DistDir  = Join-Path $RootDir 'dist'
 
@@ -18,7 +18,6 @@ if (-not (Test-Path (Join-Path $BuildDir 'windows\icon.ico'))) {
     Write-Error "Missing build\windows\icon.ico"
 }
 
-if (Test-Path $DistDir) { Remove-Item -Recurse -Force $DistDir }
 New-Item -ItemType Directory -Force $DistDir | Out-Null
 
 Push-Location $RootDir

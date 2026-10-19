@@ -18,6 +18,7 @@ import {
 import {
   CreateIcon,
   InspectImage,
+  PasteImage,
   Reveal,
   SelectImage,
   SelectOutput,
@@ -28,7 +29,7 @@ const defaultRadius = 220;
 const defaultZoom = 1;
 const donationURL = "https://ko-fi.com/enelass";
 const websiteURL = "https://www.photonsec.com.au";
-const appVersion = "1.3.10";
+const appVersion = "1.3.11";
 
 function App() {
   const [image, setImage] = useState(null);
@@ -59,6 +60,38 @@ function App() {
     }, true);
 
     return () => OnFileDropOff();
+  }, []);
+
+  useEffect(() => {
+    function pasteImage(event) {
+      if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]")) return;
+      const item = Array.from(event.clipboardData?.items || []).find(
+        (entry) => entry.kind === "file" && entry.type.startsWith("image/"),
+      );
+      const file = item?.getAsFile();
+      if (!file) return;
+      event.preventDefault();
+      setStatus("loading");
+      setMessage("");
+      setResult(null);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          useImageInfo(await PasteImage(reader.result));
+          setStatus("idle");
+        } catch (error) {
+          setStatus("error");
+          setMessage(errorMessage(error));
+        }
+      };
+      reader.onerror = () => {
+        setStatus("error");
+        setMessage("Could not read the clipboard image.");
+      };
+      reader.readAsDataURL(file);
+    }
+    window.addEventListener("paste", pasteImage);
+    return () => window.removeEventListener("paste", pasteImage);
   }, []);
 
   useEffect(() => {
@@ -118,16 +151,20 @@ function App() {
   );
   const canPan = Boolean(image && (previewGeometry.overflowX > 0.01 || previewGeometry.overflowY > 0.01));
 
+  function useImageInfo(info) {
+    setImage(info);
+    setOutputPath(info.defaultOutputPath);
+    setZoom(defaultZoom);
+    setPan({ x: 0, y: 0 });
+  }
+
   async function loadImage(path) {
     setStatus("loading");
     setMessage("");
     setResult(null);
     try {
       const info = await InspectImage(path);
-      setImage(info);
-      setOutputPath(info.defaultOutputPath);
-      setZoom(defaultZoom);
-      setPan({ x: 0, y: 0 });
+      useImageInfo(info);
       setStatus("idle");
     } catch (error) {
       setStatus("error");
@@ -142,10 +179,7 @@ function App() {
     try {
       const info = await SelectImage();
       if (info?.path) {
-        setImage(info);
-        setOutputPath(info.defaultOutputPath);
-        setZoom(defaultZoom);
-        setPan({ x: 0, y: 0 });
+        useImageInfo(info);
       }
       setStatus("idle");
     } catch (error) {
@@ -323,8 +357,9 @@ function App() {
               <div className="empty-drop">
                 <ImagePlus size={44} aria-hidden="true" />
                 <div>
-                  <h2>Drop image</h2>
+                  <h2>Drop or paste image</h2>
                   <p>PNG, JPG, GIF, WebP, SVG, ICO, ICNS</p>
+                  <p>Press ⌘V or Ctrl+V to paste an image</p>
                 </div>
               </div>
             )}

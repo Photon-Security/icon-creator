@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/png"
@@ -83,6 +85,47 @@ func TestDefaultOutputPathProtectsImportedContainers(t *testing.T) {
 	for _, test := range tests {
 		if got := defaultOutputPath(test.input); got != test.want {
 			t.Errorf("defaultOutputPath(%q) = %q, want %q", test.input, got, test.want)
+		}
+	}
+}
+
+func TestPasteImageImportsClipboardPNG(t *testing.T) {
+	var pngData bytes.Buffer
+	if err := png.Encode(&pngData, image.NewNRGBA(image.Rect(0, 0, 32, 24))); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	t.Cleanup(func() { app.shutdown(nil) })
+	info, err := app.PasteImage("data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Name != "Pasted image" || info.Width != 32 || info.Height != 24 {
+		t.Fatalf("unexpected pasted image info: %+v", info)
+	}
+	if info.DefaultOutputPath == filepath.Join(filepath.Dir(info.Path), "app.icns") {
+		t.Fatal("export defaults to temporary clipboard directory")
+	}
+	if _, err := os.Stat(info.Path); err != nil {
+		t.Fatalf("pasted source unavailable for export: %v", err)
+	}
+	path := info.Path
+	app.shutdown(nil)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("pasted source was not cleaned up: %v", err)
+	}
+}
+
+func TestPasteImageRejectsInvalidData(t *testing.T) {
+	app := NewApp()
+	t.Cleanup(func() { app.shutdown(nil) })
+	for _, data := range []string{
+		"data:text/plain;base64,dGV4dA==",
+		"data:image/png;base64,not base64",
+		"data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("not an image")),
+	} {
+		if _, err := app.PasteImage(data); err == nil {
+			t.Fatalf("accepted invalid image: %q", data)
 		}
 	}
 }

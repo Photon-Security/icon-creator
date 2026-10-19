@@ -2,6 +2,11 @@
 
 All notable changes to Icon Creator are documented here.
 
+## v1.3.11 - 2026-10-19
+
+- Added clipboard image paste with **⌘V** on macOS and **Ctrl+V** on Windows.
+- Pasted images use the same preview and icon export controls as browsed or dropped images.
+
 ## v1.3.10 - 2026-08-10
 
 - Fixed valid extended lossless WebP sources with transparency being rejected as an invalid format.

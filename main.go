@@ -25,6 +25,7 @@ func main() {
 		},
 		BackgroundColour: options.NewRGB(17, 18, 20),
 		OnStartup:        app.startup,
+		OnShutdown:       app.shutdown,
 		DragAndDrop: &options.DragAndDrop{
 			EnableFileDrop: true,
 		},
